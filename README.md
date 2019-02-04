@@ -1,2 +1,2 @@
 # Stabilizer
-Stabilize cell records
+Stabilize neurons recordings
