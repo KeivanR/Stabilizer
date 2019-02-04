@@ -70,7 +70,7 @@ while(cap.isOpened()):
     k = cv2.waitKey(10) & 0xff
     if k == 27:
         break
-#test
+#test2
     # Now update the previous frame and previous points
     #old_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY).copy()
     #p0 = good_new.reshape(-1,1,2)
