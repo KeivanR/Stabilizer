@@ -2,13 +2,15 @@ import numpy as np
 import cv2
 import sys
 
-cap = cv2.VideoCapture('C:/Users/Diana/Documents/GitHub/Stabilizer/uvc3f.avi')
+
+cap = cv2.VideoCapture('C:/Users/Diana/Desktop/Data Analysis/l2fast.avi')
 frame_width = int( cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
 frame_height =int( cap.get( cv2.CAP_PROP_FRAME_HEIGHT)) 
 frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
 fourcc = cv2.VideoWriter_fourcc(*'XVID')
-out = cv2.VideoWriter('C:/Users/Diana/Documents/GitHub/Stabilizer/output4.avi',fourcc, frame_rate, (frame_width,frame_height))
+out = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/output28.avi',fourcc, frame_rate, (frame_width,frame_height))
+out2 = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/coutput28.avi',fourcc, frame_rate, (frame_width,2*frame_height))
 p0 = None
 qlevel = 1
 while p0 is None or len(p0)<1:
@@ -38,6 +40,7 @@ mask = np.zeros_like(old_frame)
 
 while(cap.isOpened()):
 	ret,frame = cap.read()
+	
 	try: 
 		frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
 	except:
@@ -55,26 +58,28 @@ while(cap.isOpened()):
     # draw the tracks
 	tx = 0
 	ty = 0 
+	frame2=frame
 	for i,(new,old) in enumerate(zip(good_new,good_old)):
 		a,b = new.ravel()
 		c,d = old.ravel()
 		mask = cv2.line(mask, (a,b),(c,d), color[i].tolist(), 2)
-		frame = cv2.circle(frame,(c,d),1,color[i].tolist(),-1)
-		frame = cv2.circle(frame,(a,b),1,color[2*i].tolist(),-1)
+		#frame2 = cv2.circle(frame2,(c,d),10,color[i].tolist(),-1)
+		#frame2 = cv2.circle(frame2,(a,b),10,color[2*i].tolist(),-1)
 	tx += c-a
 	ty += d-b
 	
    # img = cv2.add(frame,mask)
-	img = frame
+	img = frame2
 	tx = 1*tx/(i+1)
 	ty = 1*ty/(i+1)
 	num_rows, num_cols = img.shape[:2]
 	translation_matrix = np.float32([ [1,0,tx], [0,1,ty] ])
 	img = cv2.warpAffine(img, translation_matrix, (num_cols, num_rows))
-	#img = cv2.circle(img,(int(frame_width/2),int(frame_height/2)),5,color[i-1].tolist(),-1)
-	#img = cv2.circle(img,(int(frame_width/2+tx),int(frame_height/2+ty)),5,color[i].tolist(),-1)
+	combined = np.concatenate((frame,img), axis=0)
+		
 	out.write(img)
-	cv2.imshow('frame',img)
+	out2.write(combined)
+	cv2.imshow('frame',combined)
 	k = cv2.waitKey(30) & 0xff
 	if k == 27:
 		break
@@ -84,5 +89,6 @@ while(cap.isOpened()):
     #p0 = good_new.reshape(-1,1,2)
 cap.release()
 out.release()
+out2.release()
 cv2.destroyAllWindows()
 
