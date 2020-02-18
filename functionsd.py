@@ -1,6 +1,9 @@
 import cv2
 import sys
-def stab(frame_piece, old_piece):
+import numpy as np
+def stab(frame_piece, old_piece, lk_params):
+# Create some random colors
+	color = np.random.randint(0,255,(200,3))
 	old_gray = cv2.cvtColor(old_piece, cv2.COLOR_BGR2GRAY)
 	p0 = None
 	qlevel = 1

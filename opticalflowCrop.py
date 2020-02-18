@@ -2,8 +2,9 @@ import numpy as np
 import cv2
 import sys
 from functions import *
+from functionsd import *
 import gui
-gui.plt.show()
+#gui.plt.show()
 cap = gui.cap
 frame_width = int( cap.get(cv2.CAP_PROP_FRAME_WIDTH))
 
@@ -41,7 +42,6 @@ while(cap.isOpened()):
 
 	img[0:(int(frame_height/2)-1),] = stab(frame1,old_frame1,lk_params)
 	img[int(frame_height/2):frame_height,] = stab(frame2,old_frame2,lk_params)
-	
 	out.write(img)
 	cv2.imshow('frame',img)
 	k = cv2.waitKey(30) & 0xff
