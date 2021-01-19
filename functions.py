@@ -1,10 +1,18 @@
 import numpy as np
 import cv2
 import sys
-def stab_frame(frame_piece, old_piece, lk_params,x1,x2,y1,y2,old_tx,old_ty,out_trans):
+sys.path.insert(1, "C:/Users/Diana/Documents/GitHub/analysis")
+import matplotlib.pyplot as plt
+import variabling as vr
+import common
+
+def stab_frame(frame_piece, old_piece, lk_params,x1,x2,y1,y2,old_tx,old_ty,out_trans,method = 'frame_to_frame',dist_tresh = 10000):
 	# Create some random colors
 	color = np.random.randint(0,255,(200,3))
-	old_gray = cv2.cvtColor(old_piece, cv2.COLOR_BGR2GRAY)
+	old_gray = common.gac(old_piece)['gray']
+	old_piece = common.gac(old_piece)['color']
+	
+	
 	p0 = None
 	min_features = 1
 	qlevel = 1
@@ -12,12 +20,12 @@ def stab_frame(frame_piece, old_piece, lk_params,x1,x2,y1,y2,old_tx,old_ty,out_t
 	while p0 is None or len(p0)<min_features:
 		qlevel -= 0.1
 		# params for ShiTomasi corner detection
-		feature_params = dict( maxCorners = 100,qualityLevel = qlevel, minDistance = 15, blockSize = 5 )
+		feature_params = dict( maxCorners = 100,qualityLevel = qlevel, minDistance = 15, blockSize = 15 )
 		p0 = cv2.goodFeaturesToTrack(old_gray[int(y1):int(y2),int(x1):int(x2)], mask = None, **feature_params)
 	# Create a mask image for drawing purposes
 	mask = np.zeros_like(old_piece)
-	 
-	frame_gray = cv2.cvtColor(frame_piece, cv2.COLOR_BGR2GRAY)
+	frame_gray = common.gac(frame_piece)['gray']
+	frame_piece = common.gac(frame_piece)['color']
 	
 	frame_piece2 = np.copy(frame_piece)
 
@@ -26,7 +34,6 @@ def stab_frame(frame_piece, old_piece, lk_params,x1,x2,y1,y2,old_tx,old_ty,out_t
 	# Select good points
 	good_new = p1[st==1]
 	good_old = p0[st==1]
-
 	# draw the tracks
 	tx = 0
 	ty = 0 
@@ -47,30 +54,46 @@ def stab_frame(frame_piece, old_piece, lk_params,x1,x2,y1,y2,old_tx,old_ty,out_t
 	out_trans.write(str(tx)+' '+str(ty))
 	out_trans.write("\n")
 	num_rows, num_cols = img.shape[:2]
-	translation_matrix = np.float32([ [1,0,int(tx+old_tx)], [0,1,int(ty+old_ty)] ])
+	if method == 'frame_to_frame':
+		translation_matrix = np.float32([ [1,0,int(tx+old_tx)], [0,1,int(ty+old_ty)] ])
+		old_tx += tx
+		old_ty += ty
+	else:
+		if np.abs((tx-old_tx)**2+(ty-old_ty)**2)<dist_tresh:
+			translation_matrix = np.float32([ [1,0,int(tx)], [0,1,int(ty)] ])
+			old_tx = tx
+			old_ty = ty
+		else:
+			print('big difference in translation!!')
+			translation_matrix = np.float32([ [1,0,int(old_tx)], [0,1,int(old_ty)] ])
 	img = cv2.warpAffine(img, translation_matrix, (num_cols, num_rows))
 	img2 = cv2.warpAffine(frame_piece2, translation_matrix, (num_cols, num_rows))
-	old_tx += tx
-	old_ty += ty
+	
 	return {'img':img, 'img2':img2, 'old_tx':old_tx,'old_ty':old_ty}
 	
-def stab_video(cap,x1,x2,y1,y2,filename,method = 'frame_to_frame',window_frac = 1,time_frame0 = 0):
-	frame_width = int( cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-	length = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-	frame_height =int( cap.get( cv2.CAP_PROP_FRAME_HEIGHT)) 
-	frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
+def stab_video(x1,x2,y1,y2,neuron,rois,method = 'frame_to_frame',window_frac = 1,time_frame0 = 0):
+	frames = vr.get_frames(neuron,crop=[0,1,0,1,0.25,0.8])
+	time_video = vr.get_time_video(rois,neuron)
+	if rois is None:
+		file = open('.'.join(neuron.split('.')[0:-1])+'.txt','w') 
+		file.write('1 '+str(time_video))
+		file.close()
+	frame_rate = len(frames)/time_video
+	frame_height = frames.shape[1]
+	frame_width = frames.shape[2]
+	print('frame rate is ',frame_rate)
+	print(frame_height)
 	fourcc = cv2.VideoWriter_fourcc('P','I','M','1')
+	#fourcc = cv2.VideoWriter_fourcc(*'XVID')
 	x1 = int(0+window_frac*frame_width)
 	x2 = int(frame_width-window_frac*frame_width)
 	y1 = int(0+window_frac*frame_height)
 	y2 = int(frame_height-window_frac*frame_height)
-	out = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/'+filename.split('/')[-1].split('.')[0]+'_stab.avi',fourcc, frame_rate, (frame_width,frame_height))
-	out2 = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/'+filename.split('/')[-1].split('.')[0]+'_stabcomb.avi',fourcc, frame_rate, (frame_width,2*frame_height))
+	out = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/'+neuron.split('/')[-1].split('.')[0]+'_stab.avi',fourcc, fps=frame_rate, frameSize=(frame_width,frame_height))
+	out2 = cv2.VideoWriter('C:/Users/Diana/Desktop/Data Analysis/'+neuron.split('/')[-1].split('.')[0]+'_stabcomb.avi',fourcc, fps=frame_rate, frameSize=(frame_width,2*frame_height))
 	# Take first frame and find corners in it
-	ret, old_frame = cap.read()
-	old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
 	# Parameters for lucas kanade optical flow
-	lk_params = dict( winSize  = (frame_width,frame_height),maxLevel = 0, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.03))
+	lk_params = dict( winSize  = (frame_width,frame_height),maxLevel = 10, criteria = (cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10000, 0.03))
 
 		
 
@@ -86,25 +109,32 @@ def stab_video(cap,x1,x2,y1,y2,filename,method = 'frame_to_frame',window_frac = 
 	mean_ty = 0
 	txs = []
 	tys = []
-	out_trans = open('C:/Users/Diana/Desktop/Data Analysis/'+filename.split('/')[-1].split('.')[0]+'_trans.txt', "w")
+	out_trans = open('C:/Users/Diana/Desktop/Data Analysis/'+neuron.split('/')[-1].split('.')[0]+'_trans.txt', "w")
+	old_frame = frames[0]
 	if method == 'from_maxframe':
-		old_frame = max_frame(get_frames(filename))['frame']
+		old_frame = vr.max_frame(frames)['frame']
 	if method == 'from_timeframe0':
-		frames = get_frames(filename)
 		old_frame = frames[int(time_frame0*frame_rate)]
 		print('frame0 :',int(time_frame0*frame_rate))
-	while(cap.isOpened()):
-		ret,frame = cap.read()
-		if frame is None:
-			break
-		sf = stab_frame(frame,old_frame,lk_params,x1,x2,y1,y2,old_tx,old_ty,out_trans)
+	old_frame =  common.mat_to_frame(old_frame,scaling=True)
+	old_frame = common.to8(old_frame)
+	for i in range(0,len(frames)):
+		frame = frames[i]
+		frame =  common.mat_to_frame(frame,scaling=True)
+		frame = common.to8(frame)
+		frame = common.gac(frame)['color']
+		if i == 0:
+			dist_tresh = 100000
+		else:
+			dist_tresh = 10000
+		sf = stab_frame(frame,old_frame,lk_params,x1,x2,y1,y2,old_tx,old_ty,out_trans,method = method,dist_tresh = dist_tresh)
+		old_tx = sf['old_tx']
+		old_ty = sf['old_ty']
 		mean_tx+=sf['old_tx']
 		mean_ty+=sf['old_ty']
 		txs.append(sf['old_tx'])
 		tys.append(sf['old_ty'])
 		if method == 'frame_to_frame':
-			old_tx = sf['old_tx']
-			old_ty = sf['old_ty']
 			old_frame = frame
 		img = sf['img']
 		img2 = sf['img2']
@@ -113,7 +143,7 @@ def stab_video(cap,x1,x2,y1,y2,filename,method = 'frame_to_frame',window_frac = 
 		out.write(img2)
 		out2.write(combined)
 		cv2.imshow('frame',combined)
-		k = cv2.waitKey(30) & 0xff
+		k = cv2.waitKey(1) & 0xff
 		if k == 27:
 			break
 	#test2
@@ -122,40 +152,13 @@ def stab_video(cap,x1,x2,y1,y2,filename,method = 'frame_to_frame',window_frac = 
 		#p0 = good_new.reshape(-1,1,2)
 	mean_tx = mean_tx/len(txs)
 	mean_ty = mean_ty/len(tys)
-	index = np.argmin(np.abs(np.array(txs)**2+np.array(tys)**2-mean_tx**2-mean_ty**2))
-	print('time for next frame: ',index/frame_rate)
+	distances = np.abs((np.array(txs)-mean_tx)**2+(np.array(tys)-mean_ty)**2)
+	index = np.argmin(distances)
+	indexes = np.argsort(distances)
 	out_trans.close()
-	cap.release()
 	out.release()
 	cv2.destroyAllWindows()
-def get_frames(neuron):
-	cap = cv2.VideoCapture(neuron)
-	frame_width = int( cap.get(cv2.CAP_PROP_FRAME_WIDTH))
-	frame_height = int( cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-	frame_rate = int(cap.get(cv2.CAP_PROP_FPS))
-	nb_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
-	frames = []
-	while(cap.isOpened()):
-		
-		ret, frame = cap.read()
-		try: 
-			gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-		except:
-			break
-		
-		frames.append(frame)
-		if cv2.waitKey(1) & 0xFF == ord('q'):
-			break
-	cap.release()
-	cv2.destroyAllWindows()
-	return(frames)
-
-def max_frame(frames):
-	max_brightness = 0
-	max_index = 0
-	for i in range(0,len(frames)):
-		gray = cv2.cvtColor(frames[i], cv2.COLOR_BGR2GRAY)
-		if max_brightness<gray.sum():
-			max_brightness = gray.sum()
-			max_index = i
-	return {'frame':frames[max_index],'index':max_index}
+	plt.plot(np.arange(0,len(distances))/frame_rate,distances)
+	plt.ylabel('time')
+	plt.ylabel('distances translations vs average trans')
+	plt.show()

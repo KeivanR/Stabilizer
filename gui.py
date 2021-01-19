@@ -6,6 +6,19 @@ import matplotlib.widgets as widgets
 import numpy as np
 import cv2
 from functions import *
+import sys
+sys.path.insert(1, "C:/Users/Diana/Documents/GitHub/analysis")
+import gui4 as gui
+
+vars = gui.Get_files(None).get_vars()
+neuron = vars['neuron']
+mat = vars['mat']
+neuron = vars['neuron']
+rois = vars['rois']
+video = vars['video']
+trans = vars['trans']
+find_roi = vars['find_roi']
+fly_path = vars['fly_path']
 
 def onselect(eclick, erelease):
 	global x1,x2,y1,y2
@@ -23,9 +36,9 @@ def handle_close(evt):
 root = Tk()
 root.withdraw()
 
-filename = tkinter.filedialog.askopenfilename(initialdir='C:/Users/Diana/Desktop/Data Analysis/',title='Open video for stabilization')
-cap = cv2.VideoCapture(filename)
-stab_video(cap,0,0,0,0,filename,method = 'from_timeframe0', window_frac = 0, time_frame0 = 5.76)
+print('neuron: ',neuron.split('/')[-1].split('.')[0])
+print('rois: ',rois)
+stab_video(0,0,0,0,neuron,rois,method = 'from_timeframe0', window_frac = 0, time_frame0 = 18.33)
 
 #select ROI
 #frame = max_frame(get_frames(filename))['frame']
