@@ -32,13 +32,16 @@ def onselect(eclick, erelease):
 def handle_close(evt):
 	print(x1,x2,y1,y2)
 	print('Closed Figure!')
-	stab_video(cap,x1,x2,y1,y2,filename,method = 'from_to_frame')
+	stab_video(cap,x1,x2,y1,y2,filename,method = 'from_timeframe0')
 root = Tk()
 root.withdraw()
 
 print('neuron: ',neuron.split('/')[-1].split('.')[0])
 print('rois: ',rois)
-stab_video(0,0,0,0,neuron,rois,method = 'from_timeframe0', window_frac = 0, time_frame0 = 18.33)
+#stab_video(0,0,0,0,neuron,rois,method = 'from_timeframe0', window_frac = 0, time_frame0 = 27)
+#stab_video(0,0,0,0,neuron,rois,method = 'from_numframe0', window_frac = 0, num_frame0 = 374)
+stab_video(0,0,0,0,neuron,rois,method = 'from_maxframe', window_frac = 0)
+#stab_video(0,0,0,0,neuron,rois,method = 'frame_to_frame', window_frac = 0)
 
 #select ROI
 #frame = max_frame(get_frames(filename))['frame']
